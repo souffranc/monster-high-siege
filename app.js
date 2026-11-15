@@ -1636,17 +1636,102 @@
     } catch {}
   }
 
+  // Оригинальная синтезированная тема (Web Audio API): луп из четырёх тактов.
+  // Используется, когда файла assets/audio/monster-high-instrumental.mp3 нет.
+  const MUSIC_BPM = 96;
+  const MUSIC_CHORDS = [
+    [57, 60, 64], // Am
+    [53, 57, 60], // F
+    [50, 53, 57], // Dm
+    [52, 56, 59]  // E
+  ];
+  let musicNext = 0;
+
+  const noteFreq = n => 440 * Math.pow(2, (n - 69) / 12);
+
+  function synthVoice(freq, when, dur, type, gain, cutoff) {
+    const o = audioCtx.createOscillator(),
+      g = audioCtx.createGain();
+    o.type = type;
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(.0001, when);
+    g.gain.exponentialRampToValueAtTime(gain, when + .015);
+    g.gain.exponentialRampToValueAtTime(.0008, when + dur);
+    if (cutoff) {
+      const f = audioCtx.createBiquadFilter();
+      f.type = 'lowpass';
+      f.frequency.value = cutoff;
+      o.connect(f);
+      f.connect(g);
+    } else {
+      o.connect(g);
+    }
+    g.connect(audioCtx.destination);
+    o.start(when);
+    o.stop(when + dur + .03);
+  }
+
+  function synthKick(when) {
+    const o = audioCtx.createOscillator(),
+      g = audioCtx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(128, when);
+    o.frequency.exponentialRampToValueAtTime(46, when + .12);
+    g.gain.setValueAtTime(.0001, when);
+    g.gain.exponentialRampToValueAtTime(.1, when + .012);
+    g.gain.exponentialRampToValueAtTime(.0008, when + .2);
+    o.connect(g);
+    g.connect(audioCtx.destination);
+    o.start(when);
+    o.stop(when + .24);
+  }
+
+  function synthHat(when) {
+    const len = Math.floor(audioCtx.sampleRate * .06),
+      buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate),
+      data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const src = audioCtx.createBufferSource(),
+      hp = audioCtx.createBiquadFilter(),
+      g = audioCtx.createGain();
+    src.buffer = buf;
+    hp.type = 'highpass';
+    hp.frequency.value = 7000;
+    g.gain.value = .014;
+    src.connect(hp);
+    hp.connect(g);
+    g.connect(audioCtx.destination);
+    src.start(when);
+  }
+
+  function scheduleMusic() {
+    if (!audioCtx || !musicOn || state.paused || state.screen !== 'game') return;
+    const stepDur = 60 / MUSIC_BPM / 4;
+    if (musicNext < audioCtx.currentTime) musicNext = audioCtx.currentTime + .06;
+    while (musicNext < audioCtx.currentTime + .3) {
+      const step = musicStep % 64,
+        bar = (step / 16) | 0,
+        st = step % 16,
+        chord = MUSIC_CHORDS[bar % MUSIC_CHORDS.length];
+      if (st === 0 || st === 6 || st === 8 || st === 14) synthVoice(noteFreq(chord[0] - 12), musicNext, .32, 'sawtooth', .05, 340);
+      if (st === 0) for (const n of chord) synthVoice(noteFreq(n + 12), musicNext, stepDur * 15, 'triangle', .02, 1500);
+      if (st % 2 === 0) synthVoice(noteFreq(chord[(st / 2) % chord.length] + 24), musicNext, .19, 'square', .011, 2600);
+      if (st === 0 || st === 8) synthKick(musicNext);
+      if (st % 4 === 2) synthHat(musicNext);
+      musicStep++;
+      musicNext += stepDur;
+    }
+  }
+
   // Резервная синтезированная тема, если аудиофайл недоступен.
   function startSynthMusic() {
     if (!musicOn || musicTimer || state.screen !== 'game') return;
     try {
       audioCtx ||= new(window.AudioContext || window.webkitAudioContext)();
-      let notes = [196, 246.94, 293.66, 246.94, 174.61, 220, 261.63, 220];
-      musicTimer = setInterval(() => {
-        if (state.screen !== 'game' || state.paused) return;
-        let f = notes[musicStep++ % notes.length];
-        playTone(f, .22, 'triangle');
-      }, 310);
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      musicNext = 0;
+      scheduleMusic();
+      musicTimer = setInterval(scheduleMusic, 90);
     } catch {}
   }
 
