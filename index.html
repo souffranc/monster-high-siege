@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#170d28">
+  <meta name="description" content="Monster High: Siege — готическая tower defense с героинями, монстрами, событиями и боссами.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Monster High Siege">
+  <title>Monster High: Siege</title>
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" href="./assets/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="./assets/icon-192.png" sizes="192x192" type="image/png">
+  <link rel="apple-touch-icon" href="./assets/apple-touch-icon.png">
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./effects/effects.js" defer></script>
+  <script src="./mobs/bestiary.js" defer></script>
+  <script src="./mobs/bestiary-view.js" defer></script>
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <div class="bg-grain"></div>
+  <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
+
+  <header class="topbar">
+    <button class="brand" id="brand-home" aria-label="На главную">
+      <span class="brand-skull">☠</span>
+      <span class="brand-type"><b>MONSTER <i>HIGH</i></b><small>GHOULS' SIEGE</small></span>
+    </button>
+    <div class="topbar-right">
+      <span class="save-state"><i></i><span id="save-state-text">ПРОГРЕСС СОХРАНЁН</span></span>
+      <button class="top-icon" id="save-code-button" title="Save Code" aria-label="Save Code">▤</button>
+      <button class="top-icon" id="settings-button" title="Настройки" aria-label="Настройки">⚙</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="screen-home" class="screen active">
+      <div class="home-screen-art" aria-label="Monster High: Ghouls Siege — главное меню">
+        <div class="home-hotspots">
+          <button id="play-button" class="home-hotspot hotspot-play" aria-label="Играть"></button>
+          <button id="settings-button-home" class="home-hotspot hotspot-settings" aria-label="Настройки"></button>
+          <button id="achievements-button" class="home-hotspot hotspot-achievements" aria-label="Достижения"></button>
+          <button id="collection-button" class="home-hotspot hotspot-collection" aria-label="Коллекция"></button>
+          <button id="exit-button" class="home-hotspot hotspot-exit" aria-label="Выход"></button>
+        </div>
+        <div class="home-art-caption">GHOULS' SIEGE <span>✦</span></div>
+      </div>
+      <div class="home-shell">
+        <div class="home-copy">
+          <div class="eyebrow"><span></span> THE CAMPUS IS UNDER ATTACK</div>
+          <h1>GHOULS'<br><em>SIEGE</em></h1>
+          <p class="home-lead">Собери свою команду монстряшек, защити школу и покажи злодеям, кто здесь настоящая легенда.</p>
+          <div class="home-buttons">
+            <button class="btn-primary btn-large" id="play-button-fallback">НАЧАТЬ КАМПАНИЮ <b>↗</b></button>
+            <button class="btn-outline" id="continue-button">ПРОДОЛЖИТЬ</button>
+          </div>
+          <div class="home-tags"><span>10 GHOULS</span><span>5 MAPS</span><span>75 WAVES</span><span>BOSS FIGHTS</span></div>
+          <div class="home-footnote"><span class="sparkle">✦</span> FRIENDSHIP IS SCARY. STRATEGY IS EVERYTHING.</div>
+        </div>
+        <div class="home-art-wrap">
+          <div class="home-art-glow"></div>
+          <img class="hero-lineup" src="./assets/hero-lineup.webp" alt="Десять героинь Monster High Siege" fetchpriority="high">
+          <div class="art-sticker sticker-top">GHOUL<br>POWER <b>✦</b></div>
+          <div class="art-sticker sticker-bottom">NO<br>FEAR<br><b>♡</b></div>
+        </div>
+      </div>
+      <div class="home-feature-row">
+        <article><span>☠</span><div><b>10 УНИКАЛЬНЫХ ГЕРОИНЬ</b><small>Свои атаки, пассивки и суперспособности</small></div></article>
+        <article><span>⚡</span><div><b>БОССЫ И СОБЫТИЯ</b><small>Фазы боссов, случайные испытания и награды</small></div></article>
+        <article><span>✧</span><div><b>ТАКТИЧЕСКИЕ СИНЕРГИИ</b><small>Комбинируй способности и строй свою стратегию</small></div></article>
+      </div>
+    </section>
+
+    <section id="screen-maps" class="screen">
+      <div class="section-topline"><div><div class="eyebrow"><span></span> CAMPAIGN MODE</div><h2>ВЫБЕРИ ЛОКАЦИЮ</h2><p>Каждая карта меняет маршрут, атмосферу и испытания.</p></div><div class="topline-actions"><button class="btn-outline btn-small" id="bestiary-button">☠ БЕСТИАРИЙ</button><button class="btn-outline btn-small" id="maps-home">← В МЕНЮ</button></div></div>
+      <div class="difficulty-row">
+        <span>СЛОЖНОСТЬ</span>
+        <div class="difficulty-switch" id="difficulty-switch">
+          <button data-difficulty="easy">EASY</button><button class="selected" data-difficulty="normal">NORMAL</button><button data-difficulty="hard">HARD</button>
+        </div>
+        <small id="difficulty-description">Стандартный баланс</small>
+      </div>
+      <div id="map-grid" class="map-grid"></div>
+      <div class="maps-footer"><span>✦ Открывай новые территории, побеждая боссов</span><span id="campaign-progress">0 / 5 ЛОКАЦИЙ</span></div>
+    </section>
+
+    <section id="screen-bestiary" class="screen">
+      <div class="section-topline">
+        <div><div class="eyebrow"><span></span> GHOSTLY CODEX</div><h2>БЕСТИАРИЙ</h2><p>Мобы и боссы кампании: процедурные силуэты, анимации и способности.</p></div>
+        <button class="btn-outline btn-small" id="bestiary-home">← В МЕНЮ</button>
+      </div>
+      <div class="bestiary-stage">
+        <canvas id="bestiary-canvas" width="960" height="440" aria-label="Арена бестиария: выбранное существо и его способности"></canvas>
+        <div class="bestiary-caption"><b id="bestiary-name">Слизень</b><span id="bestiary-kind">ОБЫЧНЫЙ ПРОТИВНИК</span></div>
+      </div>
+      <div class="bestiary-row"><span class="bestiary-label">МОБЫ</span><div class="bestiary-chips" id="bestiary-mobs"></div></div>
+      <div class="bestiary-row"><span class="bestiary-label">БОССЫ</span><div class="bestiary-chips" id="bestiary-bosses"></div></div>
+      <div class="bestiary-row"><span class="bestiary-label">СПОСОБНОСТИ</span><div class="bestiary-chips" id="bestiary-abilities"></div></div>
+      <div class="bestiary-row"><span class="bestiary-label">ДЕЙСТВИЯ</span><div class="bestiary-chips">
+        <button class="chip" id="bestiary-hurt">ПОЛУЧИТЬ УРОН</button>
+        <button class="chip" id="bestiary-die">СМЕРТЬ</button>
+        <button class="chip" id="bestiary-revive">ВОСКРЕСИТЬ</button>
+        <button class="chip on" id="bestiary-walk">ХОДЬБА: ВКЛ</button>
+        <button class="chip" id="bestiary-rage">ЯРОСТЬ: ВЫКЛ</button>
+        <button class="chip" id="bestiary-all">▶ ВСЕ СПОСОБНОСТИ ПОДРЯД</button>
+      </div></div>
+      <div class="bestiary-stats" id="bestiary-stats"></div>
+      <p class="bestiary-hint">Перетаскивай маркер героини по арене, чтобы сменить цель способностей. Боссы во второй половине здоровья входят в ярость.</p>
+    </section>
+
+    <section id="screen-game" class="screen">
+      <div class="game-topline">
+        <button class="back-game" id="game-home">✕</button>
+        <div class="game-brand"><span>☠</span><div><b>MONSTER HIGH</b><small>GHOULS' SIEGE</small></div></div>
+        <div class="game-map-title"><small>ЛОКАЦИЯ КАМПАНИИ</small><b id="game-map-name">MONSTER HIGH CAMPUS</b></div>
+        <div class="game-top-actions">
+          <button class="top-icon game-audio" id="music-toggle" title="Музыка">♫</button>
+          <button class="top-icon game-audio" id="sound-toggle" title="Звуки">◖</button>
+          <button class="top-icon" id="speed-button" title="Скорость">1×</button>
+          <button class="top-icon" id="pause-button" title="Пауза">Ⅱ</button>
+        </div>
+      </div>
+
+      <div class="battle-layout">
+        <div class="battle-field-wrap">
+      <div class="battle-hud">
+        <div class="hud-chip"><span class="hud-icon heart">♥</span><div><small>ЖИЗНИ</small><b id="lives-value">20</b></div></div>
+        <div class="hud-chip"><span class="hud-icon squad">⚑</span><div><small>В СТРОЮ</small><b id="squad-value">0</b></div></div>
+        <div class="hud-chip"><span class="hud-icon coin">✦</span><div><small>БИТЫ</small><b id="coins-value">260</b></div></div>
+        <div class="hud-chip"><span class="hud-icon wave">☠</span><div><small>ВОЛНА</small><b id="wave-value">ПОДГ 1/15</b></div></div>
+        <div class="hud-chip next-wave-chip"><span class="hud-icon clock">◷</span><div><small id="next-wave-label">СЛЕД. ВОЛНА</small><b id="next-wave-value">ГОТОВО</b></div></div>
+        <div class="hud-chip score-chip"><span class="hud-icon score">★</span><div><small>СЧЁТ</small><b id="score-value">0</b></div></div>
+        <button class="btn-primary call-wave" id="wave-button">НАЧАТЬ ВОЛНУ <b>↗</b></button>
+      </div>
+          <canvas id="game-canvas" width="1100" height="580" aria-label="Поле tower defense. Выбери героиню внизу и коснись места возле дороги для установки."></canvas>
+          <div class="canvas-hint" id="canvas-hint">ВЫБЕРИ ГЕРОИНЮ ВНИЗУ → УСТАНОВИ ЕЁ РЯДОМ С ДОРОГОЙ</div>
+          <div class="boss-hud hidden" id="boss-hud"><div class="boss-hud-top"><b id="boss-name">BOSS</b><span id="boss-phase">PHASE 1</span></div><div class="boss-health"><i id="boss-health-fill"></i></div></div>
+          <div class="pause-overlay hidden" id="pause-overlay"><div class="pause-card"><span>Ⅱ</span><h3>ПАУЗА</h3><p>Небольшая передышка перед следующей волной.</p><button class="btn-primary" id="resume-button">ПРОДОЛЖИТЬ</button></div></div>
+          <div class="event-overlay hidden" id="event-overlay"><div class="event-card"><div class="event-kicker" id="event-kicker">RANDOM EVENT</div><div class="event-symbol" id="event-symbol">✦</div><h3 id="event-title">GHOUL'S NIGHT</h3><p id="event-description"></p><div class="event-choices" id="event-choices"></div></div></div>
+          <div class="result-overlay hidden" id="result-overlay"><div class="result-card"><div class="result-stamp" id="result-stamp">VICTORY</div><h2 id="result-title">ЛОКАЦИЯ ЗАЩИЩЕНА!</h2><p id="result-description"></p><div class="result-rewards" id="result-rewards"></div><div class="result-actions" id="result-actions"></div></div></div>
+        </div>
+
+        <aside class="tower-inspector" id="tower-inspector">
+          <div class="inspector-empty" id="inspector-empty"><div class="empty-skull">☠</div><b>ВЫБЕРИ ГЕРОИНЮ</b><p>Коснись установленной героини, чтобы посмотреть характеристики, улучшения и активировать её суперспособность.</p></div>
+          <div class="inspector-content hidden" id="inspector-content">
+            <button class="inspector-close" id="inspector-close">×</button>
+            <div class="inspector-hero"><img id="inspector-image" src="" alt=""><div><small id="inspector-role">DAMAGE</small><h3 id="inspector-name">Draculaura</h3><span class="level-label" id="inspector-level">LEVEL 1</span></div></div>
+            <p class="inspector-description" id="inspector-description"></p>
+            <div class="inspector-hp">
+              <div class="inspector-hp-top"><span>ЗДОРОВЬЕ</span><b id="inspector-hp-text">0 / 0</b></div>
+              <div class="inspector-hp-track"><i id="inspector-hp-fill" class="ok"></i></div>
+            </div>
+            <div class="stat-list" id="inspector-stats"></div>
+            <div class="upgrade-title">UPGRADES <small>MAX LVL 4</small></div>
+            <div class="upgrade-grid" id="upgrade-grid"></div>
+            <div class="special-box"><div><small>UNIQUE ABILITY</small><b id="special-name">BAT STORM</b><p id="special-description">Призывает рой летучих мышей.</p></div><button id="special-button" class="special-button">АКТИВИРОВАТЬ <small id="special-cooldown">READY</small></button></div>
+            <div class="synergy-label" id="synergy-label">NO SYNERGY NEARBY</div>
+            <div class="inspector-actions">
+              <button class="heal-button" id="heal-button">ЛЕЧИТЬ <span id="heal-value">+0 BIT$</span></button>
+              <button class="sell-button" id="sell-button">ПРОДАТЬ <span id="sell-value">+0 BIT$</span></button>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <div class="shop-panel">
+        <div class="shop-tabs" id="shop-tabs">
+          <button class="active" data-tab="towers">Башни</button>
+          <button data-tab="support">Поддержка</button>
+          <button data-tab="powers">Суперсилы</button>
+          <button data-tab="boss">Босс-башни</button>
+          <button data-tab="orbs">Сферы</button>
+        </div>
+        <div class="shop-content">
+          <div class="shop-scroll" id="shop-items"></div>
+          <div class="shop-side-action" id="shop-side-action"><span>ОТРЯД ПРИЗРАКОВ</span><small>Выбери героиню, затем место на карте</small><button class="wave-action-large" id="wave-button-large">НАЧАТЬ ВОЛНУ <b>➜</b></button></div>
+        </div>
+      </div>
+      <div class="game-bottomline"><span id="battle-tip">СОВЕТ: ставь героинь поддержки рядом с основными атакующими.</span><span>КЛАВИШИ: P / ESC · N · 1–9 · Q W E R</span></div>
+    </section>
+  </main>
+
+  <footer class="footer"><span>UNOFFICIAL FAN-MADE GAME CONCEPT · NOT AFFILIATED WITH THE RIGHTS HOLDERS</span><span>GHOULS' SIEGE · WEB EDITION</span></footer>
+
+  <div class="modal-backdrop hidden" id="modal-backdrop">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <button class="modal-close" id="modal-close" aria-label="Закрыть">×</button>
+      <div id="modal-content"></div>
+    </section>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+  <audio id="bgm" src="./assets/audio/monster-high-instrumental.mp3" loop preload="auto"></audio>
+</body>
+</html>

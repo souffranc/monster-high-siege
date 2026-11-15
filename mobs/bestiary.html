@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Бестиарий — демо</title>
+<style>
+  :root { --bg:#12041f; --panel:#1e0a33; --line:#5b2a8f; --hi:#ff4fd8; --txt:#f1e4ff; --boss:#ffb347; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font:15px/1.4 system-ui, sans-serif; padding:16px; }
+  h1 { font-size:18px; margin:0 0 12px; }
+  .wrap { max-width:960px; margin:0 auto; }
+  canvas { width:100%; height:auto; display:block; border:1px solid var(--line); border-radius:12px; background:#0b0214; touch-action:none; }
+  .bar { display:flex; flex-wrap:wrap; gap:8px; margin:10px 0; align-items:center; }
+  .bar .lbl { color:#a98ccc; min-width:74px; font-size:13px; }
+  button { background:var(--panel); color:var(--txt); border:1px solid var(--line); border-radius:10px; padding:7px 12px; font:inherit; cursor:pointer; }
+  button:hover { border-color:var(--hi); box-shadow:0 0 10px rgba(255,79,216,.35); }
+  button.on { border-color:var(--hi); background:#3a1160; }
+  button.boss { border-color:#8a5a1e; }
+  button.boss.on { border-color:var(--boss); background:#4a2c0c; }
+  button.act { border-color:var(--hi); }
+  #desc { color:#ffd36a; min-height:1.4em; }
+  .hpbox { height:12px; background:#35142f; border:1px solid #8a3975; border-radius:99px; overflow:hidden; margin-top:7px; }
+  #hpfill { height:100%; width:100%; background:linear-gradient(90deg,#ff477e,#ffb45c); transition:width .18s; }
+  #stats { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  .phase { color:#ffb6dc; }
+  p.hint { color:#a98ccc; margin:6px 0 0; font-size:13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Бестиарий: мобы и боссы</h1>
+  <canvas id="c" width="960" height="520"></canvas>
+
+  <div class="bar"><span class="lbl">Мобы</span><span id="mobs" class="bar" style="margin:0"></span></div>
+  <div class="bar"><span class="lbl">Боссы</span><span id="bosses" class="bar" style="margin:0"></span></div>
+  <div class="bar"><span class="lbl">Способности</span><span id="acts" class="bar" style="margin:0"></span></div>
+  <div class="bar">
+    <span class="lbl">Действия</span>
+    <button id="hurt">Получить урон</button>
+    <button id="die">Смерть</button>
+    <button id="revive">Воскресить</button>
+    <button id="walk">Ходьба: выкл</button>
+    <button id="rage">Ярость: выкл</button>
+    <button id="all">▶ Все способности подряд</button>
+  </div>
+  <div id="desc"></div>
+  <div id="stats" class="hint" aria-live="polite"></div><div class="hpbox" aria-label="Здоровье существа"><div id="hpfill"></div></div>
+  <p class="hint">Перетаскивай героя по арене. Боссы переходят во вторую фазу при половине здоровья: ускоряются и наносят больше урона. Урон по кнопке снимает 10 HP.</p>
+</div>
+
+<script src="../effects/effects.js"></script>
+<script src="bestiary.js"></script>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = 960, H = 520, GROUND = 440;
+const dpr = Math.min(window.devicePixelRatio || 1, 2);
+canvas.width = W * dpr;
+canvas.height = H * dpr;
+
+const fx = new AttackFX();
+const hero = { x: 190, y: 390, hurtK: 0 };
+let m = null, type = 'slime', walking = false, queue = null;
+const descEl = document.getElementById('desc');
+
+function spawn(id) {
+  type = id;
+  const boss = Bestiary.types[id].boss;
+  m = new Monster(id, { x: 730, y: GROUND, face: -1, scale: boss ? 1 : 1.4, fx });
+  fx.clear();
+  walking = false; queue = null;
+  document.getElementById('walk').textContent = 'Ходьба: выкл';
+  document.getElementById('rage').textContent = 'Ярость: выкл';
+  document.querySelectorAll('[data-type]').forEach(b => b.classList.toggle('on', b.dataset.type === id));
+  buildActs();
+  const T = Bestiary.types[id];
+  descEl.textContent = T.label + (boss ? ' (босс)' : '');
+  updateStats();
+}
+
+function updateStats() {
+  if (!m) return;
+  const pct = Math.max(0, m.hp / m.maxHp * 100);
+  document.getElementById('hpfill').style.width = pct + '%';
+  document.getElementById('stats').innerHTML = `<span>HP: <b>${m.hp}/${m.maxHp}</b> · Урон: ${m.damage} · Скорость: ${m.T.speed}</span><span class="phase">${m.isBoss && m.phase === 2 ? 'ФАЗА II — ЯРОСТЬ' : (m.isBoss ? 'ФАЗА I' : 'Обычный противник')}</span>`;
+}
+
+function cast(ab) {
+  if (!m || m.dead) return;
+  const ok = m.cast(ab.id, hero, {
+    onHit: () => {
+      if (ab.at === 'self') descEl.textContent = ab.label + ': босс восстановил здоровье';
+      else if (ab.at === 'front') descEl.textContent = ab.label + ': здесь можно создавать мобов (new Monster(...))';
+      else { hero.hurtK = 1; descEl.textContent = ab.label + ': герой получил урон'; }
+    }
+  });
+  if (!ok) return false;
+  if (!descEl.textContent.includes(ab.label)) descEl.textContent = ab.label + ' — ' + ab.desc;
+  return true;
+}
+
+function buildActs() {
+  const box = document.getElementById('acts');
+  box.innerHTML = '';
+  Bestiary.types[type].abilities.forEach(ab => {
+    const b = document.createElement('button');
+    b.className = 'act';
+    b.textContent = ab.label;
+    b.title = ab.desc;
+    b.onclick = () => cast(ab);
+    box.appendChild(b);
+  });
+}
+
+// кнопки выбора существ
+Bestiary.list.forEach(e => {
+  const b = document.createElement('button');
+  b.textContent = e.label;
+  b.dataset.type = e.id;
+  if (e.boss) b.classList.add('boss');
+  b.onclick = () => spawn(e.id);
+  document.getElementById(e.boss ? 'bosses' : 'mobs').appendChild(b);
+});
+
+document.getElementById('hurt').onclick = () => { if (m) { m.hurt(10); updateStats(); } };
+document.getElementById('die').onclick = () => m && m.die();
+document.getElementById('revive').onclick = () => { if (m) { m.revive(); updateStats(); } };
+document.getElementById('walk').onclick = e => {
+  walking = !walking;
+  e.target.textContent = 'Ходьба: ' + (walking ? 'вкл' : 'выкл');
+  if (!walking && m) m.walk(0);
+};
+document.getElementById('rage').onclick = e => {
+  if (!m) return;
+  m.enrage(!m.enraged);
+  e.target.textContent = 'Ярость: ' + (m.enraged ? 'вкл' : 'выкл');
+};
+document.getElementById('all').onclick = () => { queue = Bestiary.types[type].abilities.slice(); };
+
+// перетаскивание героя
+let drag = false;
+function pos(e) { const r = canvas.getBoundingClientRect(); return { x: (e.clientX - r.left) * (W / r.width), y: (e.clientY - r.top) * (H / r.height) }; }
+canvas.addEventListener('pointerdown', e => { const p = pos(e); if (Math.hypot(p.x - hero.x, p.y - hero.y) < 40) { drag = true; canvas.setPointerCapture(e.pointerId); } });
+canvas.addEventListener('pointermove', e => { if (!drag) return; const p = pos(e); hero.x = Math.max(40, Math.min(W - 40, p.x)); hero.y = Math.max(250, Math.min(GROUND - 30, p.y)); });
+canvas.addEventListener('pointerup', () => { drag = false; });
+
+function drawScene() {
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#0b0214'); g.addColorStop(0.8, '#1a0830'); g.addColorStop(1, '#24103f');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  for (let i = 0; i < 40; i++) ctx.fillRect((i * 97) % W, (i * 53) % 200, 2, 2);
+  ctx.fillStyle = '#1b0b2e';
+  ctx.fillRect(0, GROUND, W, H - GROUND);
+  ctx.strokeStyle = '#5b2a8f';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, GROUND); ctx.lineTo(W, GROUND); ctx.stroke();
+}
+
+function drawHero() {
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath(); ctx.ellipse(hero.x, hero.y + 30, 30, 8, 0, 0, Math.PI * 2); ctx.fill();
+  const sh = Math.sin(performance.now() / 20) * 5 * hero.hurtK;
+  ctx.translate(hero.x + sh, hero.y);
+  ctx.fillStyle = hero.hurtK > 0.1 ? '#ff7a8a' : '#2a5fa8';
+  ctx.strokeStyle = '#5aa8ff';
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(0, 0, 28, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#cfe4ff';
+  ctx.font = '12px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Герой', 0, 4);
+  ctx.restore();
+}
+
+let last = performance.now();
+function frame(now) {
+  const dt = (now - last) / 1000;
+  last = now;
+  hero.hurtK = Math.max(0, hero.hurtK - dt * 2.5);
+  if (m) {
+    if (walking && !m.busy) {
+      if (m.x < 560) { m.face = 1; m.walk(1); }
+      else if (m.x > 860) { m.face = -1; m.walk(-1); }
+      else if (!m.moving) m.walk(m.face);
+    }
+    if (queue && queue.length && !m.busy && !fx.active.length) cast(queue.shift());
+    m.target = hero;
+    m.update(dt);
+  }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawScene();
+  if (m) m.face = walking ? m.face : (hero.x < m.x ? -1 : 1);
+  if (m) m.draw(ctx);
+  drawHero();
+  fx.update(dt);
+  fx.render(ctx);
+  requestAnimationFrame(frame);
+}
+spawn('slime');
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Анимации атак — демо</title>
+<style>
+  :root { --bg:#12041f; --panel:#1e0a33; --line:#5b2a8f; --hi:#ff4fd8; --txt:#f1e4ff; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font:15px/1.4 system-ui, sans-serif; padding:16px; }
+  h1 { font-size:18px; margin:0 0 12px; }
+  .wrap { max-width:960px; margin:0 auto; }
+  canvas { width:100%; height:auto; display:block; border:1px solid var(--line); border-radius:12px; background:#0b0214; touch-action:none; }
+  .bar { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0; }
+  button { background:var(--panel); color:var(--txt); border:1px solid var(--line); border-radius:10px; padding:8px 12px; font:inherit; cursor:pointer; }
+  button:hover { border-color:var(--hi); box-shadow:0 0 10px rgba(255,79,216,.35); }
+  button.main { border-color:var(--hi); }
+  .row { display:flex; flex-wrap:wrap; gap:16px; align-items:center; margin-top:8px; color:#c9a9ee; }
+  input[type=range] { accent-color:var(--hi); }
+  #log { min-height:1.4em; color:#ffd36a; }
+  p.hint { color:#a98ccc; margin:6px 0 0; font-size:13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Анимации атак (canvas)</h1>
+  <canvas id="c" width="960" height="520"></canvas>
+  <div class="bar" id="bar"></div>
+  <div class="row">
+    <button id="all" class="main">▶ Все по очереди</button>
+    <label>Скорость <input id="speed" type="range" min="0.25" max="1.5" step="0.05" value="1"></label>
+    <label>Масштаб <input id="scale" type="range" min="0.6" max="2" step="0.1" value="1"></label>
+    <span id="log"></span>
+  </div>
+  <p class="hint">Три маркера можно перетаскивать: атакующий (синий), цель (красный), союзник (зелёный). Щит ставится на союзника, электричество с кнопкой «на союзника» бьёт по нему.</p>
+</div>
+
+<script src="effects.js"></script>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = 960, H = 520;
+
+// чёткость на HiDPI
+const dpr = Math.min(window.devicePixelRatio || 1, 2);
+canvas.width = W * dpr;
+canvas.height = H * dpr;
+
+const markers = [
+  { id: 'from',  label: 'Атакующий', x: 200, y: 300, color: '#5aa8ff' },
+  { id: 'to',    label: 'Цель',      x: 740, y: 300, color: '#ff5a7a' },
+  { id: 'ally',  label: 'Союзник',   x: 440, y: 400, color: '#5aff9a' }
+];
+const M = Object.fromEntries(markers.map(m => [m.id, m]));
+const pt = m => ({ x: m.x, y: m.y });
+
+const fx = new AttackFX();
+const logEl = document.getElementById('log');
+const speedEl = document.getElementById('speed');
+const scaleEl = document.getElementById('scale');
+
+function play(id, extra = {}) {
+  const base = { from: pt(M.from), to: pt(M.to), scale: +scaleEl.value, speed: +speedEl.value,
+    radius: 45, onHit: () => { logEl.textContent = 'попадание: ' + id; } };
+  if (id === 'shield') base.to = pt(M.ally);
+  fx.play(id, Object.assign(base, extra));
+}
+
+// кнопки
+const bar = document.getElementById('bar');
+AttackFX.list.forEach(e => {
+  const b = document.createElement('button');
+  b.textContent = e.label;
+  b.onclick = () => play(e.id);
+  bar.appendChild(b);
+  if (e.id === 'lightning') {
+    const b2 = document.createElement('button');
+    b2.textContent = 'Молнии (на союзника)';
+    b2.onclick = () => play('lightning', { allies: [pt(M.ally)] });
+    bar.appendChild(b2);
+  }
+});
+
+let queueTimer = null;
+document.getElementById('all').onclick = () => {
+  clearTimeout(queueTimer);
+  const ids = AttackFX.list.map(e => e.id);
+  let i = 0;
+  const next = () => {
+    if (i >= ids.length) return;
+    const id = ids[i++];
+    play(id, { onEnd: () => { queueTimer = setTimeout(next, 250); } });
+  };
+  next();
+};
+
+// перетаскивание маркеров
+let drag = null;
+function pos(e) {
+  const r = canvas.getBoundingClientRect();
+  return { x: (e.clientX - r.left) * (W / r.width), y: (e.clientY - r.top) * (H / r.height) };
+}
+canvas.addEventListener('pointerdown', e => {
+  const p = pos(e);
+  drag = markers.find(m => Math.hypot(m.x - p.x, m.y - p.y) < 36) || null;
+  if (drag) canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const p = pos(e);
+  drag.x = Math.max(30, Math.min(W - 30, p.x));
+  drag.y = Math.max(40, Math.min(H - 40, p.y));
+});
+canvas.addEventListener('pointerup', () => { drag = null; });
+
+// сцена-заглушка: сетка и круглые маркеры вместо ваших спрайтов
+function drawScene() {
+  ctx.fillStyle = '#0b0214';
+  ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(120,60,180,0.18)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x <= W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = 0; y <= H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  for (const m of markers) {
+    ctx.fillStyle = m.color + '33';
+    ctx.strokeStyle = m.color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(m.x, m.y, 26, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = m.color;
+    ctx.font = '12px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(m.label, m.x, m.y + 46);
+  }
+}
+
+// игровой цикл: update(dt) + render(ctx)
+let last = performance.now();
+function frame(now) {
+  const dt = (now - last) / 1000;
+  last = now;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawScene();
+  fx.update(dt);
+  fx.render(ctx);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
